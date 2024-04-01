@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot with ChatGPT prototype</title>
+</head>
+<body>
+<h1>Chatbot with ChatGPT</h1>
+<button id="start">Start Listening</button>
+<script>
+    const startButton = document.getElementById('start');
+    let listeningForCommand = false;
+
+    startButton.addEventListener('click', () => {
+        const recognition = new window.webkitSpeechRecognition() || new window.SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onresult = event => {
+            const transcript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
+            console.log(transcript);
+
+            if (!listeningForCommand && transcript.includes('computer')) {
+                listeningForCommand = true;
+                speak("I'm ready to receive your command.");
+            } else if (listeningForCommand) {
+                listeningForCommand = false; // Reset before processing to avoid repeat processing
+                recognition.stop(); // Stop listening to send the command to ChatGPT
+                processCommand(transcript);
+            }
+        };
+
+        recognition.onend = () => {
+            if (listeningForCommand) {
+                recognition.start(); // Restart if we are still in command listening mode
+            }
+        };
+
+        recognition.start();
+    });
+
+    function processCommand(command) {
+        fetch('https://api.openai.com/v1/engines/davinci/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer YOUR_API_KEY_HERE`
+            },
+            body: JSON.stringify({
+                prompt: command,
+                max_tokens: 150
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                const reply = data.choices[0].text.trim();
+                speak(reply);
+            })
+            .catch(error => console.error('Error connecting to OpenAI:', error));
+    }
+
+    function speak(text) {
+        const msg = new SpeechSynthesisUtterance();
+        msg.text = text;
+        msg.lang = 'en-US';
+        window.speechSynthesis.speak(msg);
+    }
+</script>
+</body>
+</html>
